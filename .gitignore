@@ -1,0 +1,18 @@
+# Build artifacts
+build/
+.gradle/
+*.iml
+.idea/
+out/
+
+# Node
+node_modules/
+.next/
+web/out/
+
+# JAR in public (built separately)
+web/public/tlaplus-web-cheerpj.jar
+
+# OS
+.DS_Store
+Thumbs.db
