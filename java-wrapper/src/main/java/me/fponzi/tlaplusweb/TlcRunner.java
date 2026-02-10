@@ -92,6 +92,7 @@ public class TlcRunner {
 
             // Use TLC's API directly instead of main() to avoid System.exit()
             TLC tlc = new TLC();
+            originalOut.println("Parsing parameters...");
             boolean paramsOk = tlc.handleParameters(args.toArray(new String[0]));
             if (!paramsOk) {
                 captureStream.println("Error: Failed to parse TLC parameters.");
@@ -102,7 +103,9 @@ public class TlcRunner {
                 } else {
                     tlc.setResolver(new SimpleFilenameToStream());
                 }
+                originalOut.println("Starting TLC on module " + tlc.getMainFile() + "...");
                 int errorCode = tlc.process();
+                originalOut.println("TLC finished with exit code: " + errorCode);
                 captureStream.flush();
 
                 // Collect ToolIO messages (where TLC actually writes output)

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 
 export const metadata: Metadata = {
   title: "TLA+ Web — Model Checker in the Browser",
@@ -14,12 +13,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head />
-      <body style={{ margin: 0, fontFamily: "system-ui, -apple-system, sans-serif" }}>
+      <body style={{ margin: 0, fontFamily: "system-ui, -apple-system, sans-serif", backgroundColor: "#1a1b26", color: "#e0e0e0" }}>
         {children}
-        <Script
-          src="https://cjrtnc.leaningtech.com/4.2/loader.js"
-          strategy="beforeInteractive"
-        />
       </body>
     </html>
   );
