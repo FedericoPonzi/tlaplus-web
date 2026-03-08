@@ -28,6 +28,20 @@ public class TlcRunner {
      * @return The captured TLC output (stdout + stderr)
      */
     public static String run(String specContent, String cfgContent, int workers, boolean checkDeadlock) {
+        return run(specContent, cfgContent, workers, checkDeadlock, "/files");
+    }
+
+    /**
+     * Run TLC model checker with the given spec and config.
+     *
+     * @param specContent  The TLA+ specification content
+     * @param cfgContent   The TLC configuration content
+     * @param workers      Number of worker threads (default: 1)
+     * @param checkDeadlock Whether to check for deadlocks
+     * @param baseDir      Base directory for spec/config files and TLC state
+     * @return The captured TLC output (stdout + stderr)
+     */
+    public static String run(String specContent, String cfgContent, int workers, boolean checkDeadlock, String baseDir) {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PrintStream captureStream = new PrintStream(baos);
         PrintStream originalOut = System.out;
@@ -51,7 +65,7 @@ public class TlcRunner {
             }
 
             // Write spec and config to filesystem using the module name
-            File dir = new File("/files");
+            File dir = new File(baseDir);
             dir.mkdirs();
 
             File specFile = new File(dir, moduleName + ".tla");
@@ -79,16 +93,16 @@ public class TlcRunner {
             // Build TLC arguments
             List<String> args = new ArrayList<>();
             args.add("-config");
-            args.add("/files/" + moduleName + ".cfg");
+            args.add(baseDir + "/" + moduleName + ".cfg");
             args.add("-workers");
             args.add(String.valueOf(workers));
             args.add("-noGenerateSpecTE");
             args.add("-metadir");
-            args.add("/files/tlc-states");
+            args.add(baseDir + "/tlc-states");
             if (!checkDeadlock) {
                 args.add("-deadlock");
             }
-            args.add("/files/" + moduleName + ".tla");
+            args.add(baseDir + "/" + moduleName + ".tla");
 
             // Use TLC's API directly instead of main() to avoid System.exit()
             TLC tlc = new TLC();

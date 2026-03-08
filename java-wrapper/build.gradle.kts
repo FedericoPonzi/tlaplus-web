@@ -22,6 +22,7 @@ repositories {
 dependencies {
     implementation("org.lamport:tla2tools:1.8.0-SNAPSHOT")
     implementation("com.google.code.gson:gson:2.8.6")
+    testImplementation("junit:junit:4.13.2")
 }
 
 tasks.withType<Copy> {
