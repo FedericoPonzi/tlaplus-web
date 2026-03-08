@@ -8,22 +8,8 @@ The Java wrapper writes spec/config files to CheerpJ's virtual filesystem, invok
 
 - **Java 11** (for building the Java wrapper)
 - **Node.js 18+** (for the Next.js frontend)
-- **FedericoPonzi/tlaplus fork** with the RMI patch applied (see below)
 
 ## Quick Start
-
-### 0. Patch the tlaplus fork (one-time setup)
-
-CheerpJ doesn't support Java RMI (native sockets). TLC's `FPSet` class extends `UnicastRemoteObject` which triggers RMI on construction. Apply the included patch to your tlaplus fork:
-
-```bash
-cd /path/to/your/tlaplus-fork
-git apply /path/to/tlaplus-web/fpset-patch.diff
-```
-
-The patch changes `FPSet` to implement `Serializable` instead of extending `UnicastRemoteObject`. This disables distributed TLC (not needed in the browser) but keeps everything else working.
-
-After patching, rebuild and publish the fork to JitPack (push the commit).
 
 ### 1. Build the Java wrapper
 

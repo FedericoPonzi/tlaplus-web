@@ -15,15 +15,13 @@ repositories {
     mavenLocal()
     mavenCentral()
     maven {
-        url = uri("https://oss.sonatype.org/content/repositories/snapshots/")
-    }
-    maven {
-        url = uri("https://jitpack.io")
+        url = uri("https://central.sonatype.com/repository/maven-snapshots/")
     }
 }
 
 dependencies {
-    implementation("com.github.FedericoPonzi:tlaplus:185fa84ba2")
+    implementation("org.lamport:tla2tools:1.8.0-SNAPSHOT")
+    implementation("com.google.code.gson:gson:2.8.6")
 }
 
 tasks.withType<Copy> {
