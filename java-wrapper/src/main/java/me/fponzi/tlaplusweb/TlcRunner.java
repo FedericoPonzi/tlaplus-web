@@ -18,44 +18,38 @@ import util.ToolIO;
  */
 public class TlcRunner {
 
-    /**
-     * Run TLC model checker with the given spec and config.
-     *
-     * @param specContent  The TLA+ specification content
-     * @param cfgContent   The TLC configuration content
-     * @param workers      Number of worker threads (default: 1)
-     * @param checkDeadlock Whether to check for deadlocks
-     * @return The captured TLC output (stdout + stderr)
-     */
-    public static String run(String specContent, String cfgContent, int workers, boolean checkDeadlock) {
-        return run(specContent, cfgContent, workers, checkDeadlock, "/files");
+    static {
+        System.setProperty("com.sun.management.jmxremote", "false");
+        System.setProperty("javax.management.builder.initial", "me.fponzi.tlaplusweb.NoOpMBeanServerBuilder");
     }
 
     /**
      * Run TLC model checker with the given spec and config.
-     *
-     * @param specContent  The TLA+ specification content
-     * @param cfgContent   The TLC configuration content
-     * @param workers      Number of worker threads (default: 1)
-     * @param checkDeadlock Whether to check for deadlocks
-     * @param baseDir      Base directory for spec/config files and TLC state
-     * @return The captured TLC output (stdout + stderr)
      */
-    public static String run(String specContent, String cfgContent, int workers, boolean checkDeadlock, String baseDir) {
+    public static String run(String specContent, String cfgContent, int workers, boolean checkDeadlock) {
+        return runInternal(specContent, cfgContent, workers, checkDeadlock, false, "/files");
+    }
+
+    /**
+     * Run TLC in simulation mode (random DFS — faster but non-deterministic).
+     */
+    public static String runSimulate(String specContent, String cfgContent, int workers, boolean checkDeadlock) {
+        return runInternal(specContent, cfgContent, workers, checkDeadlock, true, "/files");
+    }
+
+    private static String runInternal(String specContent, String cfgContent, int workers, boolean checkDeadlock, boolean simulate, String baseDir) {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        PrintStream captureStream = new PrintStream(baos);
+        PrintStream capture = new PrintStream(baos, true);
         PrintStream originalOut = System.out;
         PrintStream originalErr = System.err;
 
         try {
-            // Extract module name from spec content (e.g., "---- MODULE DieHard ----")
             String moduleName = "Spec";
             for (String line : specContent.split("\n")) {
                 String trimmed = line.trim();
                 if (trimmed.contains("MODULE")) {
                     int idx = trimmed.indexOf("MODULE");
                     String after = trimmed.substring(idx + 6).trim();
-                    // Remove trailing dashes
                     after = after.replaceAll("-+$", "").trim();
                     if (!after.isEmpty()) {
                         moduleName = after;
@@ -64,7 +58,6 @@ public class TlcRunner {
                 }
             }
 
-            // Write spec and config to filesystem using the module name
             File dir = new File(baseDir);
             dir.mkdirs();
 
@@ -78,19 +71,11 @@ public class TlcRunner {
                 fw.write(cfgContent);
             }
 
-            // Redirect System.out/err so any direct prints are captured
-            System.setOut(captureStream);
-            System.setErr(captureStream);
-
-            // Disable JMX — unsupported in CheerpJ browser environment
-            System.setProperty("com.sun.management.jmxremote", "false");
-            System.setProperty("javax.management.builder.initial", "me.fponzi.tlaplusweb.NoOpMBeanServerBuilder");
-
-            // Use TOOL mode so TLC writes to ToolIO internal buffers
+            System.setOut(capture);
+            System.setErr(capture);
             ToolIO.reset();
-            ToolIO.setMode(ToolIO.TOOL);
+            ToolIO.setMode(ToolIO.SYSTEM);
 
-            // Build TLC arguments
             List<String> args = new ArrayList<>();
             args.add("-config");
             args.add(baseDir + "/" + moduleName + ".cfg");
@@ -102,14 +87,18 @@ public class TlcRunner {
             if (!checkDeadlock) {
                 args.add("-deadlock");
             }
+            if (simulate) {
+                args.add("-simulate");
+                args.add("-depth");
+                args.add("20");
+            }
             args.add(baseDir + "/" + moduleName + ".tla");
 
-            // Use TLC's API directly instead of main() to avoid System.exit()
             TLC tlc = new TLC();
-            originalOut.println("Parsing parameters...");
+            capture.println("Parsing parameters...");
             boolean paramsOk = tlc.handleParameters(args.toArray(new String[0]));
             if (!paramsOk) {
-                captureStream.println("Error: Failed to parse TLC parameters.");
+                capture.println("Error: Failed to parse TLC parameters.");
             } else {
                 String specDir = FileUtil.parseDirname(tlc.getMainFile());
                 if (!specDir.isEmpty()) {
@@ -117,31 +106,23 @@ public class TlcRunner {
                 } else {
                     tlc.setResolver(new SimpleFilenameToStream());
                 }
-                originalOut.println("Starting TLC on module " + tlc.getMainFile() + "...");
-                int errorCode = tlc.process();
-                originalOut.println("TLC finished with exit code: " + errorCode);
-                captureStream.flush();
+                capture.println("Starting TLC on module " + tlc.getMainFile() + "...");
 
-                // Collect ToolIO messages (where TLC actually writes output)
-                String[] toolMessages = ToolIO.getAllMessages();
-                StringBuilder sb = new StringBuilder();
-                for (String msg : toolMessages) {
-                    if (msg != null) {
-                        sb.append(msg).append("\n");
-                    }
+                int errorCode = tlc.process();
+
+                String[] buffered = ToolIO.getAllMessages();
+                for (String msg : buffered) {
+                    capture.println(msg);
                 }
-                // Append any System.out/err output
-                String sysOutput = baos.toString();
-                if (!sysOutput.isEmpty()) {
-                    sb.append(sysOutput);
-                }
-                sb.append("\nTLC finished with exit code: ").append(errorCode);
-                return sb.toString();
+
+                capture.println("TLC finished with exit code: " + errorCode);
+                capture.flush();
+                return baos.toString();
             }
 
         } catch (Exception e) {
-            captureStream.println("Error running TLC: " + e.getMessage());
-            e.printStackTrace(captureStream);
+            capture.println("Error running TLC: " + e.getMessage());
+            e.printStackTrace(capture);
         } finally {
             System.setOut(originalOut);
             System.setErr(originalErr);
@@ -153,5 +134,22 @@ public class TlcRunner {
 
     public static void main(String[] args) {
         System.out.println("TlcRunner ready.");
+    }
+
+    /**
+     * Write a file to the virtual filesystem.
+     * Used to write library specs (e.g., Pips.tla) before running TLC
+     * on a module that INSTANCE-imports them.
+     */
+    public static void writeFile(String path, String content) {
+        try {
+            File f = new File(path);
+            f.getParentFile().mkdirs();
+            try (FileWriter fw = new FileWriter(f)) {
+                fw.write(content);
+            }
+        } catch (Exception e) {
+            System.err.println("Error writing file " + path + ": " + e.getMessage());
+        }
     }
 }
